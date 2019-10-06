@@ -19,5 +19,3 @@ RUN \
 USER tgproxy
 
 WORKDIR /home/tgproxy/
-
-CMD ["python3", "mtprotoproxy.py"]

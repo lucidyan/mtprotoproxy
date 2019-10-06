@@ -1,14 +1,18 @@
-version: '3.0'
+version: '3.2'
 services:
   mtprotoproxy:
     build: .
     restart: unless-stopped
     network_mode: "host"
     volumes:
-      - ./config.py:/home/tgproxy/config.py
-      - ./mtprotoproxy.py:/home/tgproxy/mtprotoproxy.py
-#    mem_limit: 1024m
+      - type: bind
+        source: ${MTPROTO_HOST_CONFIG_PATH}
+        target: ${MTPROTO_DOCKER_DIR}/${MTPROTO_HOST_CONFIG_FILENAME}
+      - type: bind
+        source: ${MTPROTO_HOST_DIR}/mtprotoproxy.py
+        target: ${MTPROTO_DOCKER_DIR}/mtprotoproxy.py
     dns:
       - 8.8.8.8
       - 9.9.9.9
       - 1.1.1.1
+#    mem_limit: 1024m
