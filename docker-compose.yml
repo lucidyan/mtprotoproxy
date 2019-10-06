@@ -5,6 +5,10 @@ services:
     restart: unless-stopped
     network_mode: "host"
     volumes:
-        - ./config.py:/home/tgproxy/config.py
-        - ./mtprotoproxy.py:/home/tgproxy/mtprotoproxy.py
+      - ./config.py:/home/tgproxy/config.py
+      - ./mtprotoproxy.py:/home/tgproxy/mtprotoproxy.py
 #    mem_limit: 1024m
+    dns:
+      - 8.8.8.8
+      - 9.9.9.9
+      - 1.1.1.1
