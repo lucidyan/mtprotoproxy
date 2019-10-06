@@ -1,25 +1,23 @@
 #!/usr/bin/env python3
 
 import asyncio
-import socket
-import urllib.parse
-import urllib.request
-import collections
-import time
-import datetime
-import hmac
-import base64
-import hashlib
-import random
 import binascii
-import sys
+import collections
+import datetime
+import hashlib
+import hmac
+import os
+import random
 import re
 import runpy
 import signal
-import os
+import socket
 import stat
+import sys
+import time
 import traceback
-
+import urllib.parse
+import urllib.request
 
 TG_DATACENTER_PORT = 443
 
@@ -136,10 +134,10 @@ def init_config():
     # use middle proxy, necessary to show ad
     conf_dict.setdefault("USE_MIDDLE_PROXY", len(conf_dict["AD_TAG"]) == 16)
 
-    # if IPv6 avaliable, use it by default
+    # if IPv6 available, use it by default
     conf_dict.setdefault("PREFER_IPV6", socket.has_ipv6)
 
-    # disables tg->client trafic reencryption, faster but less secure
+    # disables tg->client traffic re-encryption, faster but less secure
     conf_dict.setdefault("FAST_MODE", True)
 
     # doesn't allow to connect in not-secure mode
@@ -382,11 +380,14 @@ def update_user_stats(user, **kw_stats):
 def update_durations(duration):
     global stats
 
+    bucket = None
+
     for bucket in STAT_DURATION_BUCKETS:
         if duration <= bucket:
             break
 
-    update_stats(**{"connects_with_duration_le_%s" % str(bucket): 1})
+    if bucket is not None:
+        update_stats(**{"connects_with_duration_le_%s" % str(bucket): 1})
 
 
 def get_curr_connects_count():
@@ -417,7 +418,7 @@ def get_to_clt_bufsize():
 class MyRandom(random.Random):
     def __init__(self):
         super().__init__()
-        key = bytes([random.randrange(256) for i in range(32)])
+        key = bytes([random.randrange(256) for _ in range(32)])
         iv = random.randrange(256**16)
 
         self.encryptor = create_aes_ctr(key, iv)
@@ -861,7 +862,7 @@ class ProxyReqStreamWriter(LayeredStreamWriterBase):
 def try_setsockopt(sock, level, option, value):
     try:
         sock.setsockopt(level, option, value)
-    except OSError as E:
+    except OSError as e:
         pass
 
 
@@ -963,15 +964,15 @@ async def handle_bad_client(reader_clt, writer_clt, handshake):
             raw_sock = socket.socket(sock.family, sock.type, sock.proto, sock.fileno())
             try:
                 raw_sock.shutdown(socket.SHUT_WR)
-            except OSError as E:
+            except OSError as e:
                 set_instant_rst(writer_clt.get_extra_info("socket"))
             finally:
                 raw_sock.detach()
         else:
             set_instant_rst(writer_clt.get_extra_info("socket"))
-    except ConnectionRefusedError as E:
+    except ConnectionRefusedError as e:
         return
-    except (OSError, asyncio.TimeoutError) as E:
+    except (OSError, asyncio.TimeoutError) as e:
         return
     finally:
         if writer_srv is not None:
@@ -1237,10 +1238,10 @@ async def do_direct_handshake(proto_tag, dc_idx, dec_key_and_iv=None):
     try:
         reader_tgt, writer_tgt = await open_connection_tryer(
             dc, TG_DATACENTER_PORT, limit=get_to_clt_bufsize(), timeout=config.TG_CONNECT_TIMEOUT)
-    except ConnectionRefusedError as E:
+    except ConnectionRefusedError as e:
         print_err("Got connection refused while trying to connect to", dc, TG_DATACENTER_PORT)
         return False
-    except (OSError, asyncio.TimeoutError) as E:
+    except (OSError, asyncio.TimeoutError) as e:
         print_err("Unable to connect to", dc, TG_DATACENTER_PORT)
         return False
 
@@ -1340,10 +1341,10 @@ async def do_middleproxy_handshake(proto_tag, dc_idx, cl_ip, cl_port):
     try:
         reader_tgt, writer_tgt = await open_connection_tryer(addr, port, limit=get_to_clt_bufsize(),
                                                              timeout=config.TG_CONNECT_TIMEOUT)
-    except ConnectionRefusedError as E:
+    except ConnectionRefusedError as e:
         print_err("The Telegram server %d (%s %s) is refusing connections" % (dc_idx, addr, port))
         return False
-    except (OSError, asyncio.TimeoutError) as E:
+    except (OSError, asyncio.TimeoutError) as e:
         print_err("Unable to connect to the Telegram server %d (%s %s)" % (dc_idx, addr, port))
         return False
 
@@ -1362,7 +1363,6 @@ async def do_middleproxy_handshake(proto_tag, dc_idx, cl_ip, cl_port):
     writer_tgt.write(msg)
     await writer_tgt.drain()
 
-    old_reader = reader_tgt
     reader_tgt = MTProtoFrameStreamReader(reader_tgt, START_SEQ_NO)
     ans = await reader_tgt.read(get_to_clt_bufsize())
 
@@ -1611,7 +1611,7 @@ def make_metrics_pkt(metrics):
             pkt_body_list.append("%s %s" % (name, val))
     pkt_body = "\n".join(pkt_body_list) + "\n"
 
-    pkt_header_list = []
+    pkt_header_list = list()
     pkt_header_list.append("HTTP/1.1 200 OK")
     pkt_header_list.append("Content-Length: %d" % len(pkt_body))
     pkt_header_list.append("Content-Type: text/plain; version=0.0.4; charset=utf-8")
@@ -1639,7 +1639,7 @@ async def handle_metrics(reader, writer):
         return
 
     try:
-        metrics = []
+        metrics = list()
         metrics.append(["uptime", "counter", "proxy uptime", time.time() - proxy_start_time])
         metrics.append(["connects_bad", "counter", "connects with bad secret",
                        stats["connects_bad"]])
@@ -1824,9 +1824,9 @@ async def get_mask_host_cert_len():
         except (TimeoutError, asyncio.TimeoutError):
             print_err("Got timeout while getting TLS handshake from MASK_HOST %s" %
                       config.MASK_HOST)
-        except Exception as E:
+        except Exception as e:
             print_err("Failed to connect to MASK_HOST %s: %s" % (
-                      config.MASK_HOST, E))
+                      config.MASK_HOST, e))
 
         await asyncio.sleep(config.GET_CERT_LEN_PERIOD)
 
@@ -1862,8 +1862,8 @@ async def get_srv_time():
                     print_err("Time is ok, reenabling advertising")
                     disable_middle_proxy = False
                     want_to_reenable_advertising = False
-        except Exception as E:
-            print_err("Error getting server time", E)
+        except Exception as e:
+            print_err("Error getting server time", e)
 
         await asyncio.sleep(config.GET_TIME_PERIOD)
 
@@ -1909,16 +1909,16 @@ async def update_middle_proxy_info():
             if not v4_proxies:
                 raise Exception("no proxy data")
             TG_MIDDLE_PROXIES_V4 = v4_proxies
-        except Exception as E:
-            print_err("Error updating middle proxy list:", E)
+        except Exception as e:
+            print_err("Error updating middle proxy list:", e)
 
         try:
             v6_proxies = await get_new_proxies(PROXY_INFO_ADDR_V6)
             if not v6_proxies:
                 raise Exception("no proxy data (ipv6)")
             TG_MIDDLE_PROXIES_V6 = v6_proxies
-        except Exception as E:
-            print_err("Error updating middle proxy list for IPv6:", E)
+        except Exception as e:
+            print_err("Error updating middle proxy list for IPv6:", e)
 
         try:
             headers, secret = await make_https_req(PROXY_SECRET_ADDR)
@@ -1927,8 +1927,8 @@ async def update_middle_proxy_info():
             if secret != PROXY_SECRET:
                 PROXY_SECRET = secret
                 print_err("Middle proxy secret updated")
-        except Exception as E:
-            print_err("Error updating middle proxy secret, using old", E)
+        except Exception as e:
+            print_err("Error updating middle proxy secret, using old", e)
 
         await asyncio.sleep(config.PROXY_INFO_UPDATE_PERIOD)
 
@@ -2012,7 +2012,7 @@ def print_tg_info():
         if secret in ["00000000000000000000000000000000", "0123456789abcdef0123456789abcdef"]:
             msg = "The default secret {} is used, this is not recommended".format(secret)
             print(msg, flush=True)
-            random_secret = "".join(myrandom.choice("0123456789abcdef") for i in range(32))
+            random_secret = "".join(myrandom.choice("0123456789abcdef") for _ in range(32))
             print("You can change it to this random secret:", random_secret, flush=True)
             print_default_warning = True
 
