@@ -480,7 +480,7 @@ class FakeTLSStreamReader(LayeredStreamReaderBase):
     __slots__ = ('buf', )
 
     def __init__(self, upstream):
-        self.upstream = upstream
+        super().__init__(upstream)
         self.buf = bytearray()
 
     async def read(self, n, ignore_buf=False):
@@ -522,9 +522,6 @@ class FakeTLSStreamReader(LayeredStreamReaderBase):
 class FakeTLSStreamWriter(LayeredStreamWriterBase):
     __slots__ = ()
 
-    def __init__(self, upstream):
-        self.upstream = upstream
-
     def write(self, data, extra={}):
         MAX_CHUNK_SIZE = 16384 + 24
         for start in range(0, len(data), MAX_CHUNK_SIZE):
@@ -538,7 +535,7 @@ class CryptoWrappedStreamReader(LayeredStreamReaderBase):
     __slots__ = ('decryptor', 'block_size', 'buf')
 
     def __init__(self, upstream, decryptor, block_size=1):
-        self.upstream = upstream
+        super().__init__(upstream)
         self.decryptor = decryptor
         self.block_size = block_size
         self.buf = bytearray()
@@ -576,7 +573,7 @@ class CryptoWrappedStreamWriter(LayeredStreamWriterBase):
     __slots__ = ('encryptor', 'block_size')
 
     def __init__(self, upstream, encryptor, block_size=1):
-        self.upstream = upstream
+        super().__init__(upstream)
         self.encryptor = encryptor
         self.block_size = block_size
 
@@ -593,7 +590,7 @@ class MTProtoFrameStreamReader(LayeredStreamReaderBase):
     __slots__ = ('seq_no', )
 
     def __init__(self, upstream, seq_no=0):
-        self.upstream = upstream
+        super().__init__(upstream)
         self.seq_no = seq_no
 
     async def read(self, buf_size):
@@ -631,7 +628,7 @@ class MTProtoFrameStreamWriter(LayeredStreamWriterBase):
     __slots__ = ('seq_no', )
 
     def __init__(self, upstream, seq_no=0):
-        self.upstream = upstream
+        super().__init__(upstream)
         self.seq_no = seq_no
 
     def write(self, msg, extra={}):
@@ -791,7 +788,7 @@ class ProxyReqStreamWriter(LayeredStreamWriterBase):
     __slots__ = ('remote_ip_port', 'our_ip_port', 'out_conn_id', 'proto_tag')
 
     def __init__(self, upstream, cl_ip, cl_port, my_ip, my_port, proto_tag):
-        self.upstream = upstream
+        super().__init__(upstream)
 
         if ":" not in cl_ip:
             self.remote_ip_port = b"\x00" * 10 + b"\xff\xff"
