@@ -93,7 +93,15 @@ last_clients_with_same_handshake = collections.Counter()
 proxy_start_time = 0
 proxy_links = []
 
-config = {}
+
+class AttrDict(dict):
+    # allow access to config by attributes
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+
+
+config = AttrDict(dict())
 
 
 def init_config():
@@ -106,7 +114,7 @@ def init_config():
         conf_dict = runpy.run_path(sys.argv[1])
     else:
         # undocumented way of launching
-        conf_dict = {}
+        conf_dict = dict()
         conf_dict["PORT"] = int(sys.argv[1])
         secrets = sys.argv[2].split(",")
         conf_dict["USERS"] = {"user%d" % i: secrets[i].zfill(32) for i in range(len(secrets))}
@@ -240,7 +248,7 @@ def init_config():
     conf_dict.setdefault("METRICS_EXPORT_LINKS", False)
 
     # allow access to config by attributes
-    config = type("config", (dict,), conf_dict)(conf_dict)
+    config = AttrDict(conf_dict)
 
 
 def apply_upstream_proxy_settings():
